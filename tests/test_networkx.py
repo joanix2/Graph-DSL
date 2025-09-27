@@ -1,222 +1,258 @@
-#!/usr/bin/env python3
 """
-Test du simulateur NetworkX avancé
+Tests pour l'intégration NetworkX avec Graph DSL
 """
 
+import pytest
 import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
-
 from src.parser import GraphDSLParser
 from src.simulator import NetworkXSimulator
 
-def create_test_graph_dsl():
+"""
+Tests pour l'intégration NetworkX avec Graph DSL
+"""
+
+import pytest
+import sys
+from src.parser import GraphDSLParser
+from src.simulator import NetworkXSimulator
+
+@pytest.fixture
+def complex_graph_dsl():
     """Crée un graphe de test plus complexe"""
     return """
-types {
-    entity Node {
-        attr state: {active, inactive}
-        attr energy: int
-    }
-    relation Edge {
-        attr weight: int
-    }
-}
-
 graph NetworkTest {
     config {
-        iterations: 8
-        step_delay: 0
-        auto_stop: false
-        verbose: true
+        iterations 8
+        step_delay 0
+        auto_stop false
+        verbose true
     }
 
-    entities {
-        n1: Node(state=active, energy=100)
-        n2: Node(state=inactive, energy=50)
-        n3: Node(state=active, energy=75)
-        n4: Node(state=inactive, energy=25)
-        n5: Node(state=active, energy=90)
-        n6: Node(state=inactive, energy=60)
+    type Node {
+        state: string = "inactive"
+        energy: int = 0
     }
 
-    relations {
-        e1: Edge(n1, n2, weight=5)
-        e2: Edge(n2, n3, weight=3)
-        e3: Edge(n3, n4, weight=7)
-        e4: Edge(n4, n5, weight=2)
-        e5: Edge(n5, n6, weight=4)
-        e6: Edge(n6, n1, weight=6)
-        e7: Edge(n1, n4, weight=8)
-        e8: Edge(n2, n5, weight=1)
+    entity n1: Node { state = "active", energy = 100 }
+    entity n2: Node { state = "inactive", energy = 50 }
+    entity n3: Node { state = "active", energy = 75 }
+    entity n4: Node { state = "inactive", energy = 25 }
+    entity n5: Node { state = "active", energy = 90 }
+    entity n6: Node { state = "inactive", energy = 60 }
+
+    relation n1 -> n2
+    relation n2 -> n3
+    relation n3 -> n4
+    relation n4 -> n5
+    relation n5 -> n6
+    relation n6 -> n1
+    relation n1 -> n4
+    relation n2 -> n5
+
+    rule "activation" {
+        condition: energy > 60
+        action: state = "active"
     }
 
-    rules {
-        Activation: if neighbor_count(node, state=active) >= 2 then node.state = active
-        Deactivation: if neighbor_count(node, state=active) == 0 then node.state = inactive
+    rule "deactivation" {
+        condition: energy < 30
+        action: state = "inactive"
     }
 }
 """
 
-def test_networkx_features():
-    """Test des fonctionnalités NetworkX avancées"""
-    print("🔬 TEST SIMULATEUR NETWORKX AVANCÉ")
-    print("=" * 50)
+class TestNetworkXSimulator:
     
-    # Parser le graphe
-    parser = GraphDSLParser()
-    dsl_content = create_test_graph_dsl()
-    
-    try:
-        model = parser.parse_to_model(dsl_content)
-        print(f"✅ Graphe parsé: {model}")
-        
-        # Créer le simulateur NetworkX
+    def test_simulator_creation(self, complex_graph_dsl):
+        """Test création du simulateur NetworkX"""
+        parser = GraphDSLParser()
+        model = parser.parse_to_model(complex_graph_dsl)
         simulator = NetworkXSimulator(model)
         
-        print(f"\n📊 ANALYSE INITIALE")
-        print("-" * 30)
+        assert simulator is not None
+        assert simulator.nx_graph is not None
+        assert len(simulator.nx_graph.nodes) == 6
+        assert len(simulator.nx_graph.edges) == 8
+    
+    def test_graph_metrics(self, complex_graph_dsl):
+        """Test calcul des métriques de graphe"""
+        parser = GraphDSLParser()
+        model = parser.parse_to_model(complex_graph_dsl)
+        simulator = NetworkXSimulator(model)
         
-        # Métriques initiales
-        initial_metrics = simulator.get_graph_metrics()
-        print("🔍 Métriques du graphe:")
-        for metric, value in initial_metrics.items():
-            if value is not None:
-                if isinstance(value, float):
-                    print(f"   {metric}: {value:.3f}")
-                else:
-                    print(f"   {metric}: {value}")
+        metrics = simulator.get_graph_metrics()
         
-        # Centralités
-        print("\n🎯 Centralités des nœuds:")
+        assert 'density' in metrics
+        assert 'average_clustering' in metrics
+        assert 'diameter' in metrics
+        assert 'is_connected' in metrics
+        
+        # Vérifier que les valeurs sont dans les bonnes plages
+        assert 0 <= metrics['density'] <= 1
+        assert 0 <= metrics['average_clustering'] <= 1
+        assert metrics['diameter'] >= 0
+        assert isinstance(metrics['is_connected'], bool)
+    
+    def test_centrality_analysis(self, complex_graph_dsl):
+        """Test analyse de centralité"""
+        parser = GraphDSLParser()
+        model = parser.parse_to_model(complex_graph_dsl)
+        simulator = NetworkXSimulator(model)
+        
         centralities = simulator.get_node_centralities()
-        for centrality_type, values in centralities.items():
-            print(f"   {centrality_type}:")
-            sorted_nodes = sorted(values.items(), key=lambda x: x[1], reverse=True)
-            for node, score in sorted_nodes:
-                print(f"     {node}: {score:.3f}")
         
-        # Communautés
+        # Vérifier tous les types de centralité
+        expected_types = ['degree', 'betweenness', 'closeness', 'eigenvector']
+        for centrality_type in expected_types:
+            assert centrality_type in centralities
+            
+            # Chaque nœud devrait avoir une valeur
+            for node_id in model.nodes.keys():
+                assert node_id in centralities[centrality_type]
+                assert isinstance(centralities[centrality_type][node_id], float)
+    
+    def test_community_detection(self, complex_graph_dsl):
+        """Test détection de communautés"""
+        parser = GraphDSLParser()
+        model = parser.parse_to_model(complex_graph_dsl)
+        simulator = NetworkXSimulator(model)
+        
         communities = simulator.analyze_communities()
-        if communities:
-            print(f"\n🏘️ Communautés détectées: {len(communities)}")
-            for i, community in enumerate(communities):
-                print(f"   Communauté {i+1}: {community}")
         
-        # Plus courts chemins (exemple)
-        print(f"\n🛤️ Plus courts chemins depuis n1:")
+        assert isinstance(communities, list)
+        # Vérifier que tous les nœuds sont dans une communauté
+        all_nodes_in_communities = set()
+        for community in communities:
+            all_nodes_in_communities.update(community)
+        
+        expected_nodes = set(model.nodes.keys())
+        assert all_nodes_in_communities == expected_nodes
+    
+    def test_shortest_paths(self, complex_graph_dsl):
+        """Test calcul des plus courts chemins"""
+        parser = GraphDSLParser()
+        model = parser.parse_to_model(complex_graph_dsl)
+        simulator = NetworkXSimulator(model)
+        
         paths = simulator.find_shortest_paths('n1')
-        if 'n1' in paths:
-            for target, path in paths['n1'].items():
-                if target != 'n1':
-                    print(f"   n1 → {target}: {' → '.join(path)}")
         
-        print(f"\n🎮 SIMULATION EN COURS")
-        print("-" * 30)
+        assert 'n1' in paths
+        assert isinstance(paths['n1'], dict)
         
-        # Fonction d'observation personnalisée
-        def detailed_observer(graph, step):
-            print(f"\n--- Étape {step} ---")
-            active_count = 0
-            inactive_count = 0
-            
-            for node_id, node in graph.nodes.items():
-                state = node.properties.get('state', 'unknown')
-                energy = node.properties.get('energy', 0)
-                
-                if state == 'active':
-                    active_count += 1
-                else:
-                    inactive_count += 1
-                    
-                print(f"  {node_id}: {state} (énergie: {energy})")
-            
-            print(f"  💡 Actifs: {active_count}, 😴 Inactifs: {inactive_count}")
-            
-            # Métriques en temps réel
-            current_metrics = simulator.get_graph_metrics()
-            clustering = current_metrics.get('average_clustering', 0)
-            print(f"  🔗 Clustering moyen: {clustering:.3f}")
+        # Vérifier que tous les autres nœuds sont atteignables
+        for node_id in model.nodes.keys():
+            if node_id != 'n1':
+                assert node_id in paths['n1']
+                path = paths['n1'][node_id]
+                assert isinstance(path, list)
+                assert len(path) >= 1
+                assert path[0] == 'n1'  # Le chemin commence par le nœud source
+                assert path[-1] == node_id  # Et se termine par la destination
+    
+    def test_simulation_run(self, complex_graph_dsl):
+        """Test exécution de simulation"""
+        parser = GraphDSLParser()
+        model = parser.parse_to_model(complex_graph_dsl)
+        simulator = NetworkXSimulator(model)
         
-        # Ajouter l'observateur et lancer la simulation
-        simulator.add_observer(detailed_observer)
+        # Observer simple pour compter les étapes
+        step_count = 0
+        def count_observer(graph, step):
+            nonlocal step_count
+            step_count = step
         
-        # État initial
-        detailed_observer(model, 0)
+        simulator.add_observer(count_observer)
+        steps_executed = simulator.run()
+        
+        assert steps_executed > 0
+        assert step_count == steps_executed
+    
+    def test_evolution_history(self, complex_graph_dsl):
+        """Test historique d'évolution"""
+        parser = GraphDSLParser()
+        model = parser.parse_to_model(complex_graph_dsl)
+        simulator = NetworkXSimulator(model)
+        
+        # Lancer une simulation courte
+        simulator.run()
+        
+        history = simulator.get_evolution_history()
+        
+        assert isinstance(history, list)
+        assert len(history) > 0
+        
+        # Vérifier la structure des entrées d'historique
+        for entry in history:
+            assert 'step' in entry
+            assert 'metrics' in entry
+            assert isinstance(entry['step'], int)
+            assert isinstance(entry['metrics'], dict)
+    
+    def test_statistics(self, complex_graph_dsl):
+        """Test calcul de statistiques"""
+        parser = GraphDSLParser()
+        model = parser.parse_to_model(complex_graph_dsl)
+        simulator = NetworkXSimulator(model)
         
         # Lancer la simulation
+        simulator.run()
+        
+        stats = simulator.get_statistics()
+        
+        assert isinstance(stats, dict)
+        # Vérifier qu'il y a des statistiques significatives
+        assert len(stats) > 0
+    
+    def test_export_formats(self, complex_graph_dsl):
+        """Test export vers différents formats"""
+        parser = GraphDSLParser()
+        model = parser.parse_to_model(complex_graph_dsl)
+        simulator = NetworkXSimulator(model)
+        
+        exports = simulator.export_to_formats()
+        
+        assert isinstance(exports, dict)
+        # Vérifier les formats d'export standard
+        expected_formats = ['node_list', 'edge_list', 'graph_dict']
+        for format_name in expected_formats:
+            assert format_name in exports
+    
+    def test_observer_mechanism(self, complex_graph_dsl):
+        """Test mécanisme d'observation"""
+        parser = GraphDSLParser()
+        model = parser.parse_to_model(complex_graph_dsl)
+        simulator = NetworkXSimulator(model)
+        
+        # Liste pour capturer les appels d'observateur
+        observer_calls = []
+        
+        def test_observer(graph, step):
+            observer_calls.append(step)
+        
+        simulator.add_observer(test_observer)
         steps = simulator.run()
         
-        print(f"\n📈 ANALYSE POST-SIMULATION")
-        print("-" * 30)
-        
-        # Statistiques finales
-        final_stats = simulator.get_statistics()
-        print("📊 Statistiques finales:")
-        for key, value in final_stats.items():
-            if isinstance(value, float):
-                print(f"   {key}: {value:.3f}")
-            else:
-                print(f"   {key}: {value}")
-        
-        # Historique d'évolution
-        history = simulator.get_evolution_history()
-        print(f"\n📜 Évolution des métriques:")
-        print("Étape | Densité | Clustering")
-        print("-" * 30)
-        for entry in history[-5:]:  # Dernières 5 étapes
-            step = entry['step']
-            metrics = entry['metrics']
-            density = metrics.get('density', 0)
-            clustering = metrics.get('average_clustering', 0)
-            print(f"{step:5d} | {density:7.3f} | {clustering:10.3f}")
-        
-        # Export des données
-        print(f"\n💾 Export des données:")
-        exports = simulator.export_to_formats()
-        print(f"   Nœuds exportés: {len(exports.get('node_list', []))}")
-        print(f"   Arêtes exportées: {len(exports.get('edge_list', []))}")
-        print(f"   Format dict disponible: {'graph_dict' in exports}")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Erreur: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-def test_comparison():
-    """Test de comparaison des performances"""
-    print(f"\n🏁 COMPARAISON ANCIEN/NOUVEAU SIMULATEUR")
-    print("-" * 50)
+        # Vérifier que l'observateur a été appelé pour chaque étape
+        assert len(observer_calls) == steps + 1  # +1 pour l'état initial (step 0)
+        assert observer_calls[0] == 0  # Premier appel à l'étape 0
+        assert observer_calls[-1] == steps  # Dernier appel à l'étape finale
     
-    # TODO: Ajouter des tests de performance si nécessaire
-    print("✅ Le nouveau simulateur NetworkX est prêt!")
-    print("🚀 Fonctionnalités ajoutées:")
-    print("   • Métriques de graphe avancées")
-    print("   • Calcul de centralités") 
-    print("   • Détection de communautés")
-    print("   • Plus courts chemins")
-    print("   • Historique d'évolution")
-    print("   • Export multi-format")
-
-def main():
-    print("🔬 TESTS SIMULATEUR NETWORKX")
-    print("Démonstration des capacités NetworkX intégrées")
-    print("=" * 60)
-    
-    success = test_networkx_features()
-    test_comparison()
-    
-    if success:
-        print(f"\n🎉 TESTS RÉUSSIS!")
-        print("Le simulateur NetworkX est opérationnel avec toutes ses fonctionnalités avancées.")
-        return True
-    else:
-        print(f"\n❌ ÉCHEC DES TESTS")
-        return False
-
-if __name__ == '__main__':
-    success = main()
-    sys.exit(0 if success else 1)
+    def test_error_handling(self):
+        """Test gestion d'erreurs"""
+        # Test avec un modèle vide/invalide
+        parser = GraphDSLParser()
+        empty_dsl = """
+        graph Empty {
+            config { iterations 1 }
+        }
+        """
+        model = parser.parse_to_model(empty_dsl)
+        simulator = NetworkXSimulator(model)
+        
+        # Devrait fonctionner même avec un graphe vide
+        steps = simulator.run()
+        assert steps >= 0
+        
+        # Les métriques devraient gérer le cas du graphe vide
+        metrics = simulator.get_graph_metrics()
+        assert isinstance(metrics, dict)
