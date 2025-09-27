@@ -1,0 +1,51 @@
+?start: types_block graph
+
+// --- Définition des types ---
+types_block: "types"  "{" type_def* "}"
+
+type_def: "entity" NAME "{" attr_def* "}"
+        | "relation" NAME "{" attr_def* "}"
+
+attr_def: "attr" NAME ":" type
+
+type: "int" 
+    | "string" 
+    | "(" "int" "," "int" ")" 
+    | "{" NAME ("," NAME)* "}"   -> enum_type
+
+// --- Graphe ---
+graph: "graph" NAME "{" stmt* "}"
+
+?stmt: entities_block
+     | relations_block
+     | rules_block
+
+entities_block: "entities"  "{" entity_inst* "}"
+entity_inst: NAME ":" NAME "(" [param ("," param)*] ")"
+
+relations_block: "relations"  "{" relation_inst* "}"
+relation_inst: NAME ":" NAME "(" NAME "," NAME ["," param ("," param)*] ")"
+
+rules_block: "rules"  "{" rule* "}"
+rule: NAME ":" "if" expr "then" action
+
+param: NAME "=" value
+value: NUMBER | ESCAPED_STRING | NAME | "(" NUMBER "," NUMBER ")"
+
+// Expression plus flexible pour supporter les conditions complexes
+expr: simple_expr
+    | expr "or" expr     -> expr_or
+    | expr "and" expr    -> expr_and
+
+simple_expr: "neighbor_count" "(" "node" "," "state=" NAME ")" comparator NUMBER
+           | NUMBER "in" "[" NUMBER ("," NUMBER)* "]"   -> number_in_range
+           | NUMBER "not" "in" "[" NUMBER ("," NUMBER)* "]"   -> number_not_in_range
+
+comparator: "==" | "<" | ">" | "<=" | ">=" | "!="
+action: "node" "." NAME "=" NAME
+
+%import common.CNAME -> NAME
+%import common.INT -> NUMBER
+%import common.ESCAPED_STRING
+%import common.WS
+%ignore WS
