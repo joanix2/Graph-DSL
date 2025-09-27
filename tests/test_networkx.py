@@ -20,43 +20,48 @@ from src.simulator import NetworkXSimulator
 def complex_graph_dsl():
     """Crée un graphe de test plus complexe"""
     return """
+types {
+    entity Node {
+        attr state: string
+        attr energy: int
+    }
+    
+    relation Edge {
+        attr weight: int
+    }
+}
+
 graph NetworkTest {
     config {
-        iterations 8
-        step_delay 0
-        auto_stop false
-        verbose true
+        iterations: 8
+        step_delay: 0
+        auto_stop: false
+        verbose: true
     }
 
-    type Node {
-        state: string = "inactive"
-        energy: int = 0
+    entities {
+        n1: Node(state="active", energy=100)
+        n2: Node(state="inactive", energy=50)
+        n3: Node(state="active", energy=75)
+        n4: Node(state="inactive", energy=25)
+        n5: Node(state="active", energy=90)
+        n6: Node(state="inactive", energy=60)
     }
 
-    entity n1: Node { state = "active", energy = 100 }
-    entity n2: Node { state = "inactive", energy = 50 }
-    entity n3: Node { state = "active", energy = 75 }
-    entity n4: Node { state = "inactive", energy = 25 }
-    entity n5: Node { state = "active", energy = 90 }
-    entity n6: Node { state = "inactive", energy = 60 }
-
-    relation n1 -> n2
-    relation n2 -> n3
-    relation n3 -> n4
-    relation n4 -> n5
-    relation n5 -> n6
-    relation n6 -> n1
-    relation n1 -> n4
-    relation n2 -> n5
-
-    rule "activation" {
-        condition: energy > 60
-        action: state = "active"
+    relations {
+        e1: Edge(n1, n2, weight=5)
+        e2: Edge(n2, n3, weight=3)
+        e3: Edge(n3, n4, weight=7)
+        e4: Edge(n4, n5, weight=2)
+        e5: Edge(n5, n6, weight=4)
+        e6: Edge(n6, n1, weight=6)
+        e7: Edge(n1, n4, weight=8)
+        e8: Edge(n2, n5, weight=1)
     }
 
-    rule "deactivation" {
-        condition: energy < 30
-        action: state = "inactive"
+    rules {
+        activation: if neighbor_count(node, state=active) >= 2 then node.state = active
+        deactivation: if neighbor_count(node, state=active) == 0 then node.state = inactive
     }
 }
 """

@@ -20,31 +20,35 @@ types {
         attr state: string
         attr energy: int
     }
+    
+    relation Edge {
+        attr weight: int
+    }
 }
 
 graph CellularTest {
     config {
-        iterations 5
-        step_delay 0.1
-        auto_stop false
-        verbose true
+        iterations: 5
+        step_delay: 0.1
+        auto_stop: false
+        verbose: true
     }
 
     entities {
-        cell1: Node(state=alive, energy=10)
-        cell2: Node(state=dead, energy=0) 
-        cell3: Node(state=alive, energy=8)
+        cell1: Node(state="alive", energy=10)
+        cell2: Node(state="dead", energy=0) 
+        cell3: Node(state="alive", energy=8)
     }
 
     relations {
-        e1: Edge(cell1, cell2)
-        e2: Edge(cell2, cell3)
-        e3: Edge(cell3, cell1)
+        e1: Edge(cell1, cell2, weight=1)
+        e2: Edge(cell2, cell3, weight=2)
+        e3: Edge(cell3, cell1, weight=3)
     }
 
     rules {
-        birth: if energy > 5 then state = "alive"
-        death: if energy < 2 then state = "dead"
+        birth: if neighbor_count(node, state=alive) >= 2 then node.state = alive
+        death: if neighbor_count(node, state=alive) == 0 then node.state = dead
     }
 }
 """
@@ -64,13 +68,17 @@ types {
     entity Cell {
         attr alive: {true, false}
     }
+    
+    relation Edge {
+        attr weight: int
+    }
 }
 
 graph SimpleTest {
     config {
-        iterations 3
-        step_delay 0
-        verbose false
+        iterations: 3
+        step_delay: 0
+        verbose: false
     }
 
     entities {
@@ -79,11 +87,11 @@ graph SimpleTest {
     }
     
     relations {
-        r1: Edge(a, b)
+        r1: Edge(a, b, weight=1)
     }
 
     rules {
-        toggle: if alive == true then alive = false
+        toggle: if neighbor_count(node, state=true) >= 1 then node.alive = false
     }
 }
 """

@@ -1,0 +1,76 @@
+?start: types_block rules_block graph_block render_block system_block
+
+// ---------- Types ----------
+types_block: "types"  "{" type_def* "}"
+
+type_def: "entity" NAME "{" attr_def* "}"
+        | "relation" NAME "{" attr_def* "}"
+
+attr_def: "attr" NAME ":" type
+
+type: "int"
+    | "string"
+    | "(" "int" "," "int" ")"           -> tuple_type
+    | "{" NAME ("," NAME)* "}"          -> enum_type
+
+// ---------- Rules ----------
+rules_block: "rules" NAME "{" rule* "}"
+
+rule: NAME ":" "if" expr "then" action
+
+expr: "neighbor_count" "(" "node" "," "state=" NAME ")" comparator NUMBER
+comparator: "==" | "<" | ">" | "<=" | ">="
+
+action: "node" "." NAME "=" rhs
+rhs: NAME
+   | NUMBER
+   | "node" "." NAME "+" NUMBER
+
+// ---------- Graph ----------
+graph_block: "graph" NAME "{" entities_block relations_block "}"
+
+entities_block: "entities" "{" entity_inst* "}"
+entity_inst: NAME ":" NAME "(" [param ("," param)*] ")"
+
+relations_block: "relations" "{" relation_inst* "}"
+relation_inst: NAME ":" NAME "(" NAME "," NAME ["," param ("," param)*] ")"
+
+param: NAME "=" value
+value: NUMBER | ESCAPED_STRING | NAME | "(" NUMBER "," NUMBER ")"
+
+// ---------- Render ----------
+render_block: "render" NAME "{" render_stmt* "}"
+
+?render_stmt: render_entity | render_relation
+
+render_entity: "entity" NAME "{" render_attr* "}"
+render_relation: "relation" NAME "{" render_attr* "}"
+
+render_attr: NAME ":" render_expr
+
+?render_expr: ESCAPED_STRING
+            | NAME
+            | NUMBER
+            | render_expr binop render_expr   -> bin_expr
+            | "if" condition "then" render_expr "else" render_expr -> if_expr
+
+binop: "+" | "-" | "*" | "/"
+
+condition: NAME comparator (NAME | NUMBER | ESCAPED_STRING)
+
+// ---------- System ----------
+system_block: "system" NAME "{" config_block sys_ref* "}"
+
+config_block: "config" "{" config_param* "}"
+config_param: NAME ":" value
+
+sys_ref: "graph" ":" NAME
+       | "rules" ":" NAME
+       | "render" ":" NAME
+
+// ---------- Terminals ----------
+%import common.CNAME   -> NAME
+%import common.INT     -> NUMBER
+%import common.ESCAPED_STRING
+%import common.WS
+%ignore WS

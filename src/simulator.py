@@ -13,11 +13,12 @@ from .semantics import SemanticEngine
 class SimulationConfig:
     """Configuration de la simulation"""
     
-    def __init__(self):
-        self.max_steps: int = 100
-        self.step_delay: float = 0.1  # secondes
-        self.auto_stop_on_stable: bool = True
-        self.verbose: bool = True
+    def __init__(self, max_steps: int = 100, step_delay: float = 0.0, 
+                 auto_stop_on_stable: bool = True, verbose: bool = False):
+        self.max_steps: int = max_steps
+        self.step_delay: float = step_delay
+        self.auto_stop_on_stable: bool = auto_stop_on_stable
+        self.verbose: bool = verbose
 
 class NetworkXSimulator:
     """Simulateur avancé utilisant NetworkX pour les calculs de graphe"""
