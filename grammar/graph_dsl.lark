@@ -19,6 +19,7 @@ graph: "graph" NAME "{" stmt* "}"
 ?stmt: entities_block
      | relations_block
      | rules_block
+     | config_block
 
 entities_block: "entities"  "{" entity_inst* "}"
 entity_inst: NAME ":" NAME "(" [param ("," param)*] ")"
@@ -28,6 +29,19 @@ relation_inst: NAME ":" NAME "(" NAME "," NAME ["," param ("," param)*] ")"
 
 rules_block: "rules"  "{" rule* "}"
 rule: NAME ":" "if" expr "then" action
+
+config_block: "config" "{" config_item* "}"
+config_item: ITERATIONS ":" NUMBER    -> config_iterations
+           | STEP_DELAY ":" DECIMAL   -> config_step_delay
+           | AUTO_STOP ":" BOOLEAN    -> config_auto_stop
+           | VERBOSE ":" BOOLEAN      -> config_verbose
+
+ITERATIONS: "iterations"
+STEP_DELAY: "step_delay"
+AUTO_STOP: "auto_stop"
+VERBOSE: "verbose"
+BOOLEAN: "true" | "false"
+DECIMAL: NUMBER ("." NUMBER)?
 
 param: NAME "=" value
 value: NUMBER | ESCAPED_STRING | NAME | "(" NUMBER "," NUMBER ")"

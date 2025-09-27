@@ -5,7 +5,7 @@ Parser pour le Graph DSL utilisant Lark
 from lark import Lark, Transformer, v_args
 from pathlib import Path
 import os
-from .model import GraphModel, Node, Edge, Rule, TypeDef, AttrDef
+from .model import GraphModel, Node, Edge, Rule, TypeDef, AttrDef, GraphConfig
 
 class GraphDSLParser:
     def __init__(self):
@@ -47,11 +47,15 @@ class GraphTransformer(Transformer):
     def types_block(self, children):
         """Traite le bloc types"""
         for type_def in children:
-            self.types[type_def.name] = type_def
+            if type_def is not None and hasattr(type_def, 'name'):
+                self.types[type_def.name] = type_def
         return self.types
     
     def type_def(self, children):
         """Définition d'un type (entity ou relation)"""
+        if len(children) < 2:
+            return None
+            
         # Premier élément est le token du type (entity/relation)
         type_kind = str(children[0])
         name = str(children[1])
@@ -73,7 +77,7 @@ class GraphTransformer(Transformer):
         name = children[0]
         self.current_graph = GraphModel(str(name))
         
-        # Traiter les blocs (entities, relations, rules)
+        # Traiter les blocs (entities, relations, rules, config)
         for stmt in children[1:]:
             if hasattr(stmt, '__iter__') and not isinstance(stmt, str):
                 for item in stmt:
@@ -83,6 +87,8 @@ class GraphTransformer(Transformer):
                         self.current_graph.add_edge(item)
                     elif isinstance(item, Rule):
                         self.current_graph.add_rule(item)
+                    elif isinstance(item, GraphConfig):
+                        self.current_graph.set_config(item)
         
         return self.current_graph
     
@@ -130,6 +136,50 @@ class GraphTransformer(Transformer):
     def rules_block(self, children):
         """Bloc règles"""
         return children
+    
+    def config_block(self, children):
+        """Bloc configuration"""
+        config = GraphConfig()
+        
+        for config_item in children:
+            if config_item is not None and isinstance(config_item, dict):
+                config_type = config_item.get('type')
+                value = config_item.get('value')
+                
+                if config_type == 'iterations':
+                    config.iterations = value
+                elif config_type == 'step_delay':
+                    config.step_delay = value
+                elif config_type == 'auto_stop':
+                    config.auto_stop = value
+                elif config_type == 'verbose':
+                    config.verbose = value
+        
+        return [config]
+    
+    def config_iterations(self, children):
+        """Config iterations"""
+        # children[0] est le token ITERATIONS, children[1] est la valeur
+        value = int(children[1]) if len(children) > 1 else 100
+        return {'type': 'iterations', 'value': value}
+    
+    def config_step_delay(self, children):
+        """Config step_delay"""
+        # children[0] est le token STEP_DELAY, children[1] est la valeur  
+        value = float(children[1]) if len(children) > 1 else 0.1
+        return {'type': 'step_delay', 'value': value}
+    
+    def config_auto_stop(self, children):
+        """Config auto_stop"""
+        # children[0] est le token AUTO_STOP, children[1] est la valeur
+        value = str(children[1]) == 'true' if len(children) > 1 else True
+        return {'type': 'auto_stop', 'value': value}
+    
+    def config_verbose(self, children):
+        """Config verbose"""
+        # children[0] est le token VERBOSE, children[1] est la valeur
+        value = str(children[1]) == 'true' if len(children) > 1 else True
+        return {'type': 'verbose', 'value': value}
     
     def rule(self, children):
         """Définition d'une règle"""

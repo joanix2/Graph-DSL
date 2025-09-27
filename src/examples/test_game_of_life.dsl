@@ -10,6 +10,13 @@ types {
 }
 
 graph TestGraph {
+    config {
+        iterations: 10
+        step_delay: 0.5
+        auto_stop: false
+        verbose: true
+    }
+
     entities {
         n1: Node(position=(0,0), state=live)
         n2: Node(position=(1,0), state=live)

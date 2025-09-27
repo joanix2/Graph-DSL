@@ -22,7 +22,16 @@ class GraphSimulator:
     def __init__(self, graph_model: GraphModel, config: Optional[SimulationConfig] = None):
         self.graph = graph_model
         self.semantic_engine = SemanticEngine(graph_model)
-        self.config = config or SimulationConfig()
+        
+        # Utiliser la configuration du graphe si pas de config externe fournie
+        if config is None:
+            config = SimulationConfig()
+            config.max_steps = graph_model.config.iterations
+            config.step_delay = graph_model.config.step_delay
+            config.auto_stop_on_stable = graph_model.config.auto_stop
+            config.verbose = graph_model.config.verbose
+        
+        self.config = config
         self.step_count = 0
         self.history: List[GraphModel] = []
         self.observers: List[Callable] = []

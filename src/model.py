@@ -7,6 +7,14 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 
 @dataclass
+class GraphConfig:
+    """Configuration du graphe pour la simulation"""
+    iterations: int = 100
+    step_delay: float = 0.1
+    auto_stop: bool = True
+    verbose: bool = True
+
+@dataclass
 class AttrDef:
     """Définition d'un attribut dans un type"""
     name: str
@@ -53,6 +61,7 @@ class GraphModel:
         self.edges: List[Edge] = []
         self.rules: List[Rule] = []
         self.types: Dict[str, TypeDef] = {}
+        self.config: GraphConfig = GraphConfig()
     
     def add_type(self, type_def: TypeDef):
         """Ajoute une définition de type"""
@@ -71,6 +80,10 @@ class GraphModel:
     def add_rule(self, rule: Rule):
         """Ajoute une règle d'évolution"""
         self.rules.append(rule)
+    
+    def set_config(self, config: GraphConfig):
+        """Définit la configuration du graphe"""
+        self.config = config
     
     def get_neighbors(self, node_id: str) -> List[str]:
         """Retourne les voisins d'un nœud"""
@@ -98,5 +111,5 @@ class GraphModel:
             self.graph.nodes[node_id][property_name] = value
     
     def __repr__(self):
-        return f"GraphModel(name={self.name}, nodes={len(self.nodes)}, edges={len(self.edges)}, rules={len(self.rules)}, types={len(self.types)})"
+        return f"GraphModel(name={self.name}, nodes={len(self.nodes)}, edges={len(self.edges)}, rules={len(self.rules)}, types={len(self.types)}, config={self.config})"
 
