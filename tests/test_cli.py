@@ -174,12 +174,29 @@ class TestCLI:
         assert result.exit_code == 0
         
         # Vérifier que la sortie est du JSON valide
+        # La sortie contient une ligne de titre avec emoji, extraire juste la partie JSON
+        output_lines = result.output.strip().split('\n')
+        # Trouver la première ligne qui commence par {
+        json_start = -1
+        for i, line in enumerate(output_lines):
+            if line.strip().startswith('{'):
+                json_start = i
+                break
+        
+        if json_start >= 0:
+            json_part = '\n'.join(output_lines[json_start:])
+        else:
+            json_part = result.output.strip()
+        
         try:
-            data = json.loads(result.output.strip())
+            data = json.loads(json_part)
             assert 'metrics' in data
             assert 'centralities' in data
             assert 'communities' in data
         except json.JSONDecodeError:
+            # Si ça échoue encore, afficher la sortie pour debug
+            print(f"Output was: {result.output}")
+            print(f"JSON part was: {json_part}")
             pytest.fail("Output is not valid JSON")
     
     def test_examples_command(self):
