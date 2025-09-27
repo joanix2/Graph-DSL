@@ -267,17 +267,31 @@ def analyze(dsl_file, output_format):
         
         elif output_format == 'dot':
             # Export format DOT pour Graphviz
-            import networkx as nx
-            dot_data = nx.nx_pydot.to_pydot(simulator.nx_graph).to_string()
-            click.echo(dot_data)
+            try:
+                import networkx as nx
+                dot_data = nx.nx_pydot.to_pydot(simulator.nx_graph).to_string()
+                click.echo(dot_data)
+            except ImportError:
+                click.echo("❌ Format DOT nécessite pydot: pip install pydot", err=True)
+                sys.exit(1)
+            except Exception as e:
+                click.echo(f"❌ Erreur lors de l'export DOT: {e}", err=True)
+                sys.exit(1)
         
         elif output_format == 'graphml':
             # Export GraphML
-            import networkx as nx
-            import io
-            buffer = io.StringIO()
-            nx.write_graphml(simulator.nx_graph, buffer)
-            click.echo(buffer.getvalue())
+            try:
+                import networkx as nx
+                import io
+                buffer = io.StringIO()
+                nx.write_graphml(simulator.nx_graph, buffer)
+                click.echo(buffer.getvalue())
+            except ImportError:
+                click.echo("❌ Format GraphML nécessite lxml: pip install lxml", err=True)
+                sys.exit(1)
+            except Exception as e:
+                click.echo(f"❌ Erreur lors de l'export GraphML: {e}", err=True)
+                sys.exit(1)
         
     except Exception as e:
         click.echo(f"❌ Erreur lors de l'analyse: {e}", err=True)
